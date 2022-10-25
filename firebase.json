@@ -1,0 +1,17 @@
+{
+  "hosting": {
+    "public": "build/web",
+    "target": "lojas-khuise-admin",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
