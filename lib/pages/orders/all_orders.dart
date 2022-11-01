@@ -1,12 +1,14 @@
 
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:data_table_2/data_table_2.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:lojas_khuise/constants/app_constants.dart';
 import 'package:lojas_khuise/helpers/reponsiveness.dart';
 import 'package:lojas_khuise/pages/orders/widgets/order_details.dart';
 import 'package:lojas_khuise/services/auth_service.dart';
+import 'package:lojas_khuise/widgets/custom_text.dart';
 import 'package:lojas_khuise/widgets/screens_templates_messages/loading_orders.dart';
 import 'package:lojas_khuise/widgets/screens_templates_messages/no_orders.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
@@ -25,15 +27,13 @@ class All_Orders_State extends State<All_Orders> {
   String filterValue = 'TODOS';
   String searchValue = '';
 
-  var uid_order_format = new MaskTextInputFormatter(mask: '#&&&&&&&&&&', filter: { "&": RegExp(r'[0-9]') });
-
   @override
   Widget build(BuildContext context) {
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0,
+        elevation: 1,
         leading: !ResponsiveWidget.isSmallScreen(context) ? Container(): IconButton(icon: Icon(Icons.menu, color: Colors.black,), onPressed: (){
           scaffoldKey.currentState.openDrawer();
         }),
@@ -71,7 +71,7 @@ class All_Orders_State extends State<All_Orders> {
                       }).toList(),
                     )
                   ],
-                )
+                ),
               ],
             ),
             Row(
@@ -103,7 +103,6 @@ class All_Orders_State extends State<All_Orders> {
                               onChanged: (valor) {
                                 searchValue = valor;
                               },
-                              inputFormatters: [uid_order_format],
                               autofocus: false,
                               style: TextStyle(
                                   fontSize: 15.0, color: Colors.black),
@@ -178,67 +177,76 @@ class All_Orders_State extends State<All_Orders> {
             .snapshots(),
     builder: (context, all_orders_querysnapshot) {
           print(filterValue);
-        if (all_orders_querysnapshot.connectionState == ConnectionState.waiting) {
-          return Loading_Orders();
-        }
-        else if(all_orders_querysnapshot.data == null)
+          if (!all_orders_querysnapshot.hasData)
+            return Loading_Orders();
+          else if(all_orders_querysnapshot.data == null)
             return No_Order_Found();
           else if(all_orders_querysnapshot.data.docs.length == 0)
             return No_Order_Found();
           else
-            return ListView.builder(
-              itemCount: all_orders_querysnapshot.data.docs.length,
-              itemBuilder: (context, index) {
-                return StreamBuilder<DocumentSnapshot>(
-                    stream: FirebaseFirestore.instance.collection('users')
-                        .doc(all_orders_querysnapshot.data.docs[index].data()['uid_user']).collection('orders')
-                        .doc(all_orders_querysnapshot.data.docs[index].id).snapshots(),
-                    builder: (context, order_user_document) {
-                      if (!order_user_document.hasData)
-                        return Container();
-                      else
-                        return Padding(
-                            padding: EdgeInsets.only(top: 10),
-                            child: Container(
-                              alignment: Alignment.center,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                              ),
-                              child: ListTile(
-                                  onTap: () async {
-
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => Order_Details(order: order_user_document.data,)),
-                                    );
-
-                                  },
-                                  trailing: order_user_document.data.data()['status'] == 0 ?
-                                  Icon(Icons.warning_amber_outlined, color: Colors.yellow) :
-                                  order_user_document.data.data()['status'] == 1 ?
-                                  Icon(Icons.check_circle, color: Colors.green) :
-                                  order_user_document.data.data()['status'] == 2 ?
-                                  Icon(Icons.move_to_inbox, color: Colors.blue) :
-                                  order_user_document.data.data()['status'] == 3 ?
-                                  Icon(Icons.directions_car_rounded, color: Colors.blue) :
-                                  order_user_document.data.data()['status'] == 4 ?
-                                  Icon(Icons.done, color: Colors.green) :
-                                  Icon(Icons.warning_amber_outlined, color: Colors.red),
-                                  title: Text('PEDIDO: ${order_user_document.data.data()['orderNumber']}', style: TextStyle(fontSize: 12),),
-                                  subtitle: Text(
-                                      'STATUS: ${order_user_document.data.data()['status_text']}\n'
-                                          'DATA DA COMPRA: ${dateFormat.format(DateTime.parse(order_user_document.data.data()['date'].toDate().toString()))}\n'
-                                          'TOTAL: R\$ ${order_user_document.data.data()['total'].toStringAsFixed(2)}',
-                                    style: TextStyle(fontSize: 11),
-                                  )
-                              ),
-                            )
-                        );
-                    });
-              },
+            return DataTable2(
+                showCheckboxColumn: false,
+                columnSpacing: 20.0,
+                columns: [
+                  DataColumn(
+                    label: Text('Pedido'),
+                  ),
+                  DataColumn(
+                    label: Text('Status'),
+                  ),
+                  DataColumn(
+                    label: Text('Data da Compra'),
+                  ),
+                  DataColumn(
+                    label: Text('Total'),
+                  ),
+                  DataColumn(
+                    label: Text(''),
+                  ),
+                ],
+                rows: List<DataRow>.generate(
+                    all_orders_querysnapshot.data.docs.length,
+                        (index) => DataRow(
+                        onSelectChanged: (bool selected) {
+                          if (selected) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => Order_Details(order: all_orders_querysnapshot.data.docs[index])),
+                            );
+                          }
+                        },
+                        cells: [
+                          DataCell(CustomText(
+                            text: "${all_orders_querysnapshot.data.docs[index]['orderNumber']}",
+                            color: Colors.black,
+                            size: 10,
+                          )),
+                          DataCell( CustomText(
+                            text: "${all_orders_querysnapshot.data.docs[index]['status_text']}",
+                            size: 11,
+                          )),
+                          DataCell(CustomText(
+                            text: "${dateFormat.format(DateTime.parse(all_orders_querysnapshot.data.docs[index]['date'].toDate().toString()))}",
+                            size: 11,
+                          )),
+                          DataCell(CustomText(
+                            text: "R\$ ${all_orders_querysnapshot.data.docs[index]['total'].toStringAsFixed(2)}",
+                            size: 11,
+                          )),
+                          DataCell(all_orders_querysnapshot.data.docs[index]['status'] == 0 ?
+                          Icon(Icons.warning_amber_outlined, color: Colors.yellow, size: 18) :
+                          all_orders_querysnapshot.data.docs[index]['status'] == 1 ?
+                          Icon(Icons.check_circle, color: Colors.green, size: 18) :
+                          all_orders_querysnapshot.data.docs[index]['status'] == 2 ?
+                          Icon(Icons.move_to_inbox, color: Colors.blue, size: 18) :
+                          all_orders_querysnapshot.data.docs[index]['status'] == 3 ?
+                          Icon(Icons.directions_car_rounded, color: Colors.blue, size: 18) :
+                          all_orders_querysnapshot.data.docs[index]['status'] == 4 ?
+                          Icon(Icons.done, color: Colors.green, size: 18) :
+                          Icon(Icons.warning_amber_outlined, color: Colors.red, size: 18)),
+                        ])
+                )
             );
-
         },
       ),
     );

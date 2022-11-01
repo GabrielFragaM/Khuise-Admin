@@ -1,10 +1,10 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
+import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:data_table_2/data_table_2.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lojas_khuise/constants/app_constants.dart';
+import 'package:lojas_khuise/services/orders_service.dart';
 import 'package:lojas_khuise/widgets/custom_text.dart';
 
 
@@ -51,7 +51,7 @@ class Order_Details_State extends State<Order_Details> {
                 ],
               ),
               backgroundColor: Colors.white,
-              elevation: 0.5,
+              elevation: 1,
               leading: IconButton(onPressed: (){
                 Navigator.pop(context);
               },icon: Icon(Icons.arrow_back),color: Colors.pink,),
@@ -61,40 +61,57 @@ class Order_Details_State extends State<Order_Details> {
                 SizedBox(height: 20,),
                 Padding(
                   padding: EdgeInsets.only(left: 20),
-                  child: Row(
+                  child: Column(
                     children: [
-                      Text(
-                        'Pedido:',
-                        style: TextStyle(
-                            fontSize: 18.0,
-                            fontWeight: FontWeight.w500
-                        ),
-                        maxLines: 3,
+                      Row(
+                        children: [
+                          Text(
+                            'Pedido:',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500
+                            ),
+                            maxLines: 3,
+                          ),
+                          SizedBox(width: 5,),
+                          Text(
+                            '${order_document.data.data()['orderNumber']}',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500
+                            ),
+                            maxLines: 3,
+                          ),
+                        ],
                       ),
-                      SizedBox(width: 5,),
-                      Text(
-                        '${order_document.data.data()['orderNumber']}',
-                        style: TextStyle(
-                            fontSize: 18.0,
-                            fontWeight: FontWeight.w500
-                        ),
-                        maxLines: 3,
-                      ),
-                      SizedBox(width: 5,),
-                      order_document.data.data()['status'] == 0 ?
-                      Icon(Icons.warning_amber_outlined, color: Colors.yellow) :
-                      order_document.data.data()['status'] == 1 ?
-                      Icon(Icons.check_circle, color: Colors.green):
-                      order_document.data.data()['status'] == 2 ?
-                      Icon(Icons.move_to_inbox, color: Colors.blue):
-                      order_document.data.data()['status'] == 3 ?
-                      Icon(Icons.directions_car_rounded, color: Colors.blue):
-                      order_document.data.data()['status'] == 4 ?
-                      Icon(Icons.done, color: Colors.green) :
-                      Icon(Icons.warning_amber_outlined, color: Colors.red),
-                    ],
-                  ),),
+                      Row(
+                        children: [
+                          SizedBox(height: 25),
+                          Text(
+                            'Copiar código do pedido:',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500
+                            ),
+                            maxLines: 3,
+                          ),
+                          SizedBox(width: 5,),
+                          InkWell(
+                              onTap: () async {
+                                Clipboard.setData(ClipboardData(text: order_document.data.data()['orderNumber']));
+                                const snackBar = SnackBar(
+                                  backgroundColor: Colors.green,
+                                  content: Text('Código do pedido copiado.'),
+                                );
 
+                                ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                              },
+                              child: Icon(Icons.copy, size: 20)
+                          )
+                        ],
+                      )
+                    ],
+                  )),
                 StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance.collection('users')
                         .doc(_infoScreen.order.data()['uid_user']).collection('orders')
@@ -383,27 +400,9 @@ class Order_Details_State extends State<Order_Details> {
                         edit_order['status'] = 1;
                         edit_order['status_text'] = 'APROVADO';
 
-                        if(order_document.data.data()['confirmation'] == false) {
-                          QuerySnapshot all_products_buy = await FirebaseFirestore.instance.collection('users')
-                              .doc(_infoScreen.order.data()['uid_user']).collection('orders')
-                              .doc(_infoScreen.order.id).collection('products').get();
+                        edit_order['confirmation'] = await reduceStock(_infoScreen.order.id, _infoScreen.order.data()['uid_user'],
+                            order_document.data.data().containsValue('confirmation') == false ? false : order_document.data.data()['confirmation']);
 
-                          for (var p_buy in all_products_buy.docs) {
-                            Map <String, dynamic> product_in_store_update = {};
-
-                            DocumentSnapshot product_in_store = await FirebaseFirestore.instance
-                                .collection('products')
-                                .doc(p_buy.data()['uid']).get();
-
-                            product_in_store_update['amount'] = product_in_store.data()['amount'] - p_buy.data()['quantity'];
-
-                            await FirebaseFirestore.instance.collection('products')
-                                .doc(p_buy.data()['uid']).update(product_in_store_update);
-
-                            edit_order['confirmation'] = true;
-                          }
-
-                        }
                         await FirebaseFirestore.instance.collection('orders')
                             .doc(_infoScreen.order.id).update(edit_order);
 
@@ -411,12 +410,12 @@ class Order_Details_State extends State<Order_Details> {
                             .doc(_infoScreen.order.data()['uid_user']).collection('orders')
                             .doc(_infoScreen.order.id).update(edit_order);
 
-                        final save_completed = SnackBar(
+                        final saveCompleted = SnackBar(
                           content: Text('NOVO STATUS DO PEDIDO: APROVADO', style: TextStyle(color: Colors.white),),
                           backgroundColor: Colors.green,
                         );
 
-                        ScaffoldMessenger.of(context).showSnackBar(save_completed);
+                        ScaffoldMessenger.of(context).showSnackBar(saveCompleted);
 
                       },
                       child: Container(
@@ -439,27 +438,7 @@ class Order_Details_State extends State<Order_Details> {
                         edit_order['status'] = 5;
                         edit_order['status_text'] = 'REJEITADO';
 
-                        if(order_document.data.data()['confirmation'] == true) {
-                          QuerySnapshot all_products_buy = await FirebaseFirestore.instance.collection('users')
-                              .doc(_infoScreen.order.data()['uid_user']).collection('orders')
-                              .doc(_infoScreen.order.id).collection('products').get();
-
-                          for (var p_buy in all_products_buy.docs) {
-                            Map <String, dynamic> product_in_store_update = {};
-
-                            DocumentSnapshot product_in_store = await FirebaseFirestore.instance
-                                .collection('products')
-                                .doc(p_buy.data()['uid']).get();
-
-                            product_in_store_update['amount'] = product_in_store.data()['amount'] + p_buy.data()['quantity'];
-
-                            await FirebaseFirestore.instance.collection('products')
-                                .doc(p_buy.data()['uid']).update(product_in_store_update);
-
-                            edit_order['confirmation'] = false;
-                          }
-
-                        }
+                        edit_order['confirmation'] = await addStock(_infoScreen.order.id, _infoScreen.order.data()['uid_user'], order_document.data.data()['confirmation']);
 
                         await FirebaseFirestore.instance.collection('orders')
                             .doc(_infoScreen.order.id).update(edit_order);
@@ -468,12 +447,12 @@ class Order_Details_State extends State<Order_Details> {
                             .doc(_infoScreen.order.data()['uid_user']).collection('orders')
                             .doc(_infoScreen.order.id).update(edit_order);
 
-                        final save_completed = SnackBar(
+                        final saveCompleted = SnackBar(
                           content: Text('NOVO STATUS DO PEDIDO: REJEITADO', style: TextStyle(color: Colors.white),),
                           backgroundColor: Colors.red,
                         );
 
-                        ScaffoldMessenger.of(context).showSnackBar(save_completed);
+                        ScaffoldMessenger.of(context).showSnackBar(saveCompleted);
 
                       },
                       child: Container(
@@ -503,12 +482,12 @@ class Order_Details_State extends State<Order_Details> {
                             .doc(_infoScreen.order.data()['uid_user']).collection('orders')
                             .doc(_infoScreen.order.id).update(edit_order);
 
-                        final save_completed = SnackBar(
+                        final saveCompleted = SnackBar(
                           content: Text('NOVO STATUS DO PEDIDO: EM PREPARAÇÃO', style: TextStyle(color: Colors.white),),
                           backgroundColor: Colors.blue,
                         );
 
-                        ScaffoldMessenger.of(context).showSnackBar(save_completed);
+                        ScaffoldMessenger.of(context).showSnackBar(saveCompleted);
 
                       },
                       child: Container(
@@ -538,12 +517,12 @@ class Order_Details_State extends State<Order_Details> {
                             .doc(_infoScreen.order.data()['uid_user']).collection('orders')
                             .doc(_infoScreen.order.id).update(edit_order);
 
-                        final save_completed = SnackBar(
+                        final saveCompleted = SnackBar(
                           content: Text('NOVO STATUS DO PEDIDO: EM TRANSPORTE', style: TextStyle(color: Colors.white),),
                           backgroundColor: Colors.blue,
                         );
 
-                        ScaffoldMessenger.of(context).showSnackBar(save_completed);
+                        ScaffoldMessenger.of(context).showSnackBar(saveCompleted);
 
                       },
                       child: Container(
@@ -573,12 +552,12 @@ class Order_Details_State extends State<Order_Details> {
                             .doc(_infoScreen.order.data()['uid_user']).collection('orders')
                             .doc(_infoScreen.order.id).update(edit_order);
 
-                        final save_completed = SnackBar(
+                        final saveCompleted = SnackBar(
                           content: Text('NOVO STATUS DO PEDIDO: ENTREGUE', style: TextStyle(color: Colors.white),),
                           backgroundColor: Colors.green,
                         );
 
-                        ScaffoldMessenger.of(context).showSnackBar(save_completed);
+                        ScaffoldMessenger.of(context).showSnackBar(saveCompleted);
                       },
                       child: Container(
                         decoration: BoxDecoration(color: Colors.green,
@@ -754,6 +733,54 @@ class Order_Details_State extends State<Order_Details> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+                Padding(padding: EdgeInsets.only(left: 3, bottom: 10, top: 100),
+                  child: InkWell(
+                    onTap: () async {
+
+                      AwesomeDialog(
+                        width: 500,
+                        context: context,
+                        animType: AnimType.SCALE,
+                        dismissOnTouchOutside: false,
+                        dismissOnBackKeyPress: false,
+                        dialogType: DialogType.ERROR,
+                        title: 'Deletar Pedido',
+                        btnCancelOnPress: () async {
+                          Navigator.pop(context);
+                          await FirebaseFirestore.instance.collection('orders')
+                              .doc(_infoScreen.order.id).delete();
+
+                          await FirebaseFirestore.instance.collection('users')
+                              .doc(_infoScreen.order.data()['uid_user']).collection('orders')
+                              .doc(_infoScreen.order.id).delete();
+
+                          final saveCompleted = SnackBar(
+                            content: Text('Pedido deletado', style: TextStyle(color: Colors.white),),
+                            backgroundColor: Colors.red,
+                          );
+
+                          ScaffoldMessenger.of(context).showSnackBar(saveCompleted);
+                        },
+                        btnOkOnPress: () {},
+                        desc: 'Você em certeza que deseja deletar esse pedido ?',
+                        btnOkText: 'Não',
+                        btnCancelText: 'Sim'
+                      )..show();
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(color: Colors.red,
+                          borderRadius: BorderRadius.circular(5)),
+                      alignment: Alignment.center,
+                      width: 130,
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: CustomText(
+                        text: "Deletar Pedido",
+                        color: Colors.white,
+                        size: 12,
+                      ),
+                    ),
                   ),
                 ),
               ],

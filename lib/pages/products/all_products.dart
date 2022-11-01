@@ -1,8 +1,6 @@
 
-import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:data_table_2/data_table_2.dart';
 import 'package:lojas_khuise/constants/app_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:lojas_khuise/helpers/reponsiveness.dart';
@@ -10,10 +8,8 @@ import 'package:lojas_khuise/pages/products/widgets/product_details.dart';
 import 'package:lojas_khuise/widgets/custom_text.dart';
 import 'package:lojas_khuise/widgets/screens_templates_messages/loading_products.dart';
 import 'package:lojas_khuise/widgets/screens_templates_messages/products_not_found.dart';
-import 'package:responsive_grid/responsive_grid.dart';
 
 class All_Products extends StatefulWidget {
-
 
   @override
   All_Products_State createState() =>
@@ -24,6 +20,9 @@ class All_Products extends StatefulWidget {
 class All_Products_State extends State<All_Products> {
 
   final _controller = ScrollController();
+
+  String queryProduct = '';
+  String queryBy = '';
 
   @override
   Widget build(BuildContext context) {
@@ -46,8 +45,8 @@ class All_Products_State extends State<All_Products> {
       ),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0,
-        leading: !ResponsiveWidget.isSmallScreen(context) ? Container(): IconButton(icon: Icon(Icons.menu, color: Colors.black,), onPressed: (){
+        elevation: 1,
+        leading: !ResponsiveWidget.isSmallScreen(context) ?Container(): IconButton(icon: Icon(Icons.menu, color: Colors.black,), onPressed: (){
           scaffoldKey.currentState.openDrawer();
         }),
         actions: [
@@ -86,107 +85,87 @@ class All_Products_State extends State<All_Products> {
         stream: FirebaseFirestore.instance.collection('products')
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting)
+          if (!snapshot.hasData)
             return Loading_Products();
-          else if(snapshot.data.docs.isNotEmpty)
-            return ListView(
-              controller: _controller,
-              physics: BouncingScrollPhysics(),
-              children: [
-                ResponsiveGridList(
-                    scroll: false,
-                    desiredItemWidth: MediaQuery.of(context).size.width > 500 ? 240: 180,
-                    minSpacing: 5,
-                    children: snapshot.data.docs.map((item) {
-                      return GestureDetector(
-                        onTap: () async {
-
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => Product_Details(product: {'uid': item.id, 'sizes': item['sizes'], 'name': item['name'], 'amount': item['amount'], 'description': item['description'], 'price': item['price'], 'images': item['images']})),
-                          );
-
-
+          else if(snapshot.data.docs.isNotEmpty || snapshot.connectionState == ConnectionState.done)
+            return DataTable2(
+                showCheckboxColumn: false,
+                columnSpacing: 20.0,
+                columns: [
+                  DataColumn(
+                    label: Text('Imagem'),
+                  ),
+                  DataColumn(
+                    label: Text('Produto'),
+                  ),
+                  DataColumn(
+                    label: Text('Descrição'),
+                  ),
+                  DataColumn(
+                    label: Text('Estoque'),
+                  ),
+                  DataColumn(
+                    label: Text('Preço'),
+                  ),
+                ],
+                rows: List<DataRow>.generate(
+                    snapshot.data.docs.length,
+                        (index) => DataRow(
+                        onSelectChanged: (bool selected) {
+                          if (selected) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => Product_Details(product: {'uid': snapshot.data.docs[index].id, 'sizes': snapshot.data.docs[index]['sizes'], 'name': snapshot.data.docs[index]['name'], 'amount': snapshot.data.docs[index]['amount'], 'description': snapshot.data.docs[index]['description'], 'price': snapshot.data.docs[index]['price'], 'images': snapshot.data.docs[index]['images']})),
+                            );
+                          }
                         },
-                        child: Container(
-                          width: 200,
-                          child: Card(
-                            elevation: 10,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                        cells: [
+                          DataCell(Container(
+                            width: 50,
+                            height: 50,
+                            child: Image.network(snapshot.data.docs[index]['images'][0], fit: BoxFit.cover,),
+                          )),
+                          DataCell(CustomText(
+                            text: "${snapshot.data.docs[index]['name']}",
+                            color: Colors.black,
+                            size: 14,
+                          )),
+                          DataCell(Container(
+                            padding: EdgeInsets.all(4),
+                            height: 39,
+                            child: RichText(
+                              overflow: TextOverflow.clip,
+                              strutStyle: StrutStyle(fontSize: 10),
+                              text: TextSpan(
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 14,
+                                  ),
+                                  text: "${snapshot.data.docs[index]['description']}"),
                             ),
-                            shadowColor: Colors.black,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                Container(
-                                  width: 60.0,
-                                  height: MediaQuery.of(context).size.width > 900 ? 250.0: 190.0,
-                                  child: Image.network(item['images'][0], fit: BoxFit.cover,),
-                                ),
-                                Center(
-                                  child: Container(
-                                    padding: EdgeInsets.all(8),
-                                    height: 50,
-                                    child: CustomText(
-                                      text: "${item['name']}",
-                                      color: Colors.black,
-                                      size: 14,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(height: 5,),
-                                Align(
-                                  alignment: Alignment.center,
-                                  child: Container(
-                                    padding: EdgeInsets.all(4),
-                                    height: 39,
-                                    child: RichText(
-                                      overflow: TextOverflow.clip,
-                                      strutStyle: StrutStyle(fontSize: 10),
-                                      text: TextSpan(
-                                          style: TextStyle(
-                                            color: Colors.grey,
-                                            fontSize: 14,
-                                          ),
-                                          text: "${item['description']}"),
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(height: 5,),
-                                item['amount'] == 0 ?
-                                Center(
-                                  child: CustomText(
-                                    text: "ESTOQUE EM FALTA",
-                                    color: Colors.red,
-                                    size: 13,
-                                  ),
-                                ):
-                                Center(
-                                  child: CustomText(
-                                    text: "${item['amount']} EM ESTOQUE",
-                                    color: Colors.green,
-                                    size: 13,
-                                  ),
-                                ),
-                                SizedBox(height: 8,),
-                                Center(
-                                  child: CustomText(
-                                    text: "A partir de R\$: ${item['price'].toStringAsFixed(2)}",
-                                    color: Colors.black,
-                                    size: 13,
-                                  ),
-                                ),
-                                SizedBox(height: 10,),
-                              ],
+                          )),
+                          DataCell(snapshot.data.docs[index]['amount'] == 0 ?
+                          Center(
+                            child: CustomText(
+                              text: "ESTOQUE EM FALTA",
+                              color: Colors.red,
+                              size: 13,
                             ),
-                          ),
-                        ),
-                      );
-                    }).toList()
+                          ):
+                          Center(
+                            child: CustomText(
+                              text: "${snapshot.data.docs[index]['amount']} EM ESTOQUE",
+                              color: Colors.green,
+                              size: 13,
+                            ),
+                          )),
+                          DataCell(CustomText(
+                            text: "R\$ ${snapshot.data.docs[index]['price'].toStringAsFixed(2)}",
+                            color: Colors.black,
+                            size: 13,
+                          ),),
+                        ])
                 )
-              ],
             );
           else
             return Products_Not_Found();
