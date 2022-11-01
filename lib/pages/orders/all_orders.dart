@@ -230,7 +230,7 @@ class All_Orders_State extends State<All_Orders> {
                             size: 11,
                           )),
                           DataCell(CustomText(
-                            text: "R\$ ${all_orders_querysnapshot.data.docs[index]['total'].toStringAsFixed(2)}",
+                            text: "R\$ ${(all_orders_querysnapshot.data.docs[index]['preco_entrega'] + all_orders_querysnapshot.data.docs[index]['total']).toStringAsFixed(2)}",
                             size: 11,
                           )),
                           DataCell(all_orders_querysnapshot.data.docs[index]['status'] == 0 ?

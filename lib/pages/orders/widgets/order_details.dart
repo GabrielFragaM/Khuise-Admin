@@ -278,7 +278,7 @@ class Order_Details_State extends State<Order_Details> {
                               DataCell(Container(
                                 width: 50, //SET width
                                 child: Text(
-                                  'R\$ ${order_document.data.data()['total'].toStringAsFixed(2)}',
+                                  'R\$ ${(order_document.data.data()['preco_entrega'] + order_document.data.data()['total']).toStringAsFixed(2)}',
                                   style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w500
