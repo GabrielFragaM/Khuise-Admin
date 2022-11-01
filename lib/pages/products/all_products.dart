@@ -19,8 +19,6 @@ class All_Products extends StatefulWidget {
 
 class All_Products_State extends State<All_Products> {
 
-  final _controller = ScrollController();
-
   String queryProduct = '';
   String queryBy = '';
 
@@ -29,20 +27,6 @@ class All_Products_State extends State<All_Products> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      floatingActionButton: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(left: 20),
-            child: IconButton(
-              onPressed: (){
-                _controller.jumpTo(_controller.position.minScrollExtent);
-
-              },icon: Icon(Icons.arrow_upward_sharp, size: 27,),
-            ),
-          ),
-        ],
-      ),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 1,
