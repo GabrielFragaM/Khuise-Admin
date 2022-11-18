@@ -594,7 +594,7 @@ class Order_Details_State extends State<Order_Details> {
                   child: Column(
                     children: [
                       ListTile(
-                        title: Text('Entrega por Correios:'),
+                        title: Text('Entrega por ${order_document.data.data()['deliveryBy']}:'),
                         leading: Icon(Icons.local_shipping_outlined),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
